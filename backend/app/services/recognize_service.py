@@ -123,10 +123,13 @@ async def _process_recognize(
     user_id: int | None,
     meal_hint: str | None,
 ) -> None:
-    """后台处理：调 Qwen-VL → 解析 → 入库 → 更新 Redis。"""
+    """后台处理：调 Qwen-VL → 解析 → 存 MinIO → 更新 Redis。"""
     try:
         # 更新进度
         await _update_task(task_id, status="processing", progress=30)
+
+        # 图片存 MinIO（后台异步，不阻塞识别）
+        asyncio.create_task(_upload_to_minio(task_id, image_bytes, content_type))
 
         # 调 Qwen-VL
         result = await _call_qwen_vl(image_bytes, content_type)
@@ -312,6 +315,32 @@ def _parse_vl_response(content: str) -> dict:
             logger.error("vl_parse_failed", content=content[:500])
             raise
     return data
+
+
+async def _upload_to_minio(task_id: str, image_bytes: bytes, content_type: str) -> None:
+    """将拍照图片上传到 MinIO（后台异步，不阻塞识别）。"""
+    try:
+        import boto3
+        from botocore.client import Config as BotoConfig
+
+        ext = content_type.split("/")[-1] if "/" in content_type else "jpg"
+        object_key = f"camera/{task_id}.{ext}"
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=settings.OSS_ENDPOINT,
+            aws_access_key_id=settings.OSS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.OSS_ACCESS_KEY_SECRET,
+            config=BotoConfig(signature_version="s3v4"),
+        )
+        s3.put_object(
+            Bucket=settings.OSS_BUCKET,
+            Key=object_key,
+            Body=image_bytes,
+            ContentType=content_type,
+        )
+        logger.info("camera_image_uploaded", task_id=task_id, key=object_key)
+    except Exception as exc:
+        logger.warning("camera_upload_failed", task_id=task_id, error=str(exc))
 
 
 async def _save_nutrition_log(

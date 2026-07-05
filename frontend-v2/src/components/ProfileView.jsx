@@ -211,7 +211,7 @@ export default function ProfileView() {
               </div>
             )}
           </button>
-          <input ref={avatarRef} type="file" accept="image/*" onChange={handleAvatar} className="hidden" />
+          <input ref={avatarRef} type="file" accept="image/*" onChange={handleAvatar} style={{ display: 'none' }} />
 
           {/* 用户名 + 身份标签 */}
           <div className="flex-1 min-w-0">

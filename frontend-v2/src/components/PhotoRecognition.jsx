@@ -17,6 +17,7 @@ export default function PhotoRecognition() {
   const reduce = useReducedMotion();
   const [selectedMeal, setSelectedMeal] = useState('lunch');
   const fileRef = useRef(null);
+  const galleryRef = useRef(null);
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
@@ -83,31 +84,34 @@ export default function PhotoRecognition() {
 
               {/* Idle state */}
               {!isRecognizing && !result && (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
+                  {/* 拍照 */}
                   <button
                     onClick={() => fileRef.current?.click()}
-                    className="w-full py-12 rounded-xl flex flex-col items-center gap-3 transition-all"
-                    style={{
-                      border: '2px dashed var(--border-color)',
-                      background: 'var(--bg-tertiary)',
-                    }}
+                    className="w-full py-5 rounded-xl flex items-center gap-3 px-4 transition-all active:scale-[0.98]"
+                    style={{ background: 'var(--accent)', color: '#fff' }}
                   >
-                    <div
-                      style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '14px',
-                        background: 'var(--accent-soft)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Camera size={24} color="var(--accent)" />
+                    <Camera size={20} weight="fill" />
+                    <div className="text-left">
+                      <p className="text-sm font-semibold">拍照</p>
+                      <p className="text-[11px] opacity-70">直接拍一张食堂菜品</p>
                     </div>
-                    <span className="text-xs text-[var(--text-tertiary)]">拍照或选择图片</span>
                   </button>
-                  <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleFile} className="hidden" />
+                  <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }} />
+
+                  {/* 相册选择 */}
+                  <button
+                    onClick={() => galleryRef.current?.click()}
+                    className="w-full py-5 rounded-xl flex items-center gap-3 px-4 transition-all active:scale-[0.98]"
+                    style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }}
+                  >
+                    <span style={{ fontSize: '20px' }}>🖼️</span>
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">相册选择</p>
+                      <p className="text-[11px] text-[var(--text-tertiary)]">从手机相册里挑一张</p>
+                    </div>
+                  </button>
+                  <input ref={galleryRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
                 </div>
               )}
 

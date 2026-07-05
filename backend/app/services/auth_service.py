@@ -204,9 +204,9 @@ async def update_nickname(user_id: int, nickname: str) -> dict:
 
 
 async def upload_avatar(user_id: int, file: UploadFile) -> str:
-    """上传头像：校验 → Pillow 压缩到 256x256 → 本地保存 → 更新 avatar_url。
+    """上传头像：校验 → Pillow 压缩到 256x256 → 上传 MinIO/OSS → 更新 avatar_url。
 
-    返回 avatar_url（相对路径 /static/avatars/xxx.jpg）。
+    返回 avatar_url（MinIO/OSS 公网可访问的完整 URL）。
     """
     if not file.filename:
         raise BizError(code=ERR_PARAM_FORMAT, message="请上传图片文件")
@@ -235,27 +235,57 @@ async def upload_avatar(user_id: int, file: UploadFile) -> str:
         logger.warning("avatar_decode_failed", user_id=user_id, error=str(exc))
         raise BizError(code=ERR_PARAM_FORMAT, message="图片解析失败") from exc
 
-    upload_dir = settings.AVATAR_UPLOAD_DIR
-    os.makedirs(upload_dir, exist_ok=True)
-    filename = f"{user_id}_{int(time.time())}.jpg"
-    filepath = os.path.join(upload_dir, filename)
-    img.save(filepath, "JPEG", quality=85)
+    # 压缩为 JPEG 字节流
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=85)
+    buf.seek(0)
 
-    avatar_url = f"/static/avatars/{filename}"
+    # 上传到 MinIO（S3 兼容 API）
+    try:
+        import boto3
+        from botocore.client import Config as BotoConfig
+    except ImportError:
+        raise BizError(code=ERR_PARAM_FORMAT, message="对象存储 SDK 未安装")
+
+    object_key = f"avatars/{user_id}_{int(time.time())}.jpg"
+    try:
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=settings.OSS_ENDPOINT,
+            aws_access_key_id=settings.OSS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.OSS_ACCESS_KEY_SECRET,
+            config=BotoConfig(signature_version="s3v4"),
+        )
+        # 确保 bucket 存在
+        try:
+            s3.head_bucket(Bucket=settings.OSS_BUCKET)
+        except Exception:
+            s3.create_bucket(Bucket=settings.OSS_BUCKET)
+            logger.info("minio_bucket_created", bucket=settings.OSS_BUCKET)
+        s3.put_object(
+            Bucket=settings.OSS_BUCKET,
+            Key=object_key,
+            Body=buf,
+            ContentType="image/jpeg",
+        )
+    except Exception as exc:
+        logger.error("minio_upload_failed", user_id=user_id, error=str(exc))
+        raise BizError(code=ERR_PARAM_FORMAT, message="头像上传失败，请稍后重试") from exc
+
+    avatar_url = f"{settings.OSS_ENDPOINT}/{settings.OSS_BUCKET}/{object_key}"
 
     async with PgSessionLocal() as session:
         user = await session.get(User, user_id)
         if user is None:
             raise BizError(code=ERR_USER_NOT_FOUND, message="用户不存在")
-        # 删除旧头像文件（失败不阻塞）
-        if user.avatar_url and user.avatar_url.startswith("/static/avatars/"):
-            old_filename = user.avatar_url.rsplit("/", 1)[-1]
-            old_path = os.path.join(settings.AVATAR_UPLOAD_DIR, old_filename)
-            try:
-                if os.path.exists(old_path):
-                    os.remove(old_path)
-            except OSError:
-                pass
+        # 删除 MinIO 旧头像（失败不阻塞）
+        if user.avatar_url and user.avatar_url.startswith(settings.OSS_ENDPOINT):
+            old_key = user.avatar_url.rsplit("/", 1)[-1]
+            if old_key.startswith("avatars/"):
+                try:
+                    bucket.delete_object(old_key)
+                except Exception:
+                    pass
         user.avatar_url = avatar_url
         await session.commit()
         logger.info("user_avatar_updated", user_id=user_id)

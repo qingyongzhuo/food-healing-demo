@@ -36,8 +36,6 @@
 
 ## 📸 界面预览
 
-> *截图待补充 — 部署后截几张放这里*
-
 | 首页营养环 | 拍照识菜 | AI 对话 |
 |:---:|:---:|:---:|
 | ![首页](docs/screenshots/01.png) | ![拍照识菜](docs/screenshots/02.png) | ![AI 对话](docs/screenshots/03.png) |
