@@ -1,0 +1,386 @@
+@import "tailwindcss";
+
+/* ============================================================
+   食愈 v2 — iOS 原生极简 · 液态玻璃设计系统
+   纯白背景 + 卡片液态玻璃 + 苹果系统色
+   严格遵守：无紫光、无渐变背景、无发光特效
+   ============================================================ */
+
+:root {
+  /* 页面背景 — 纯白 */
+  --bg-primary: #F7F6F3;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #F2F3F5;
+
+  /* 主色 — 苹果系统蓝（仅按钮/选中态） */
+  --accent: #007AFF;
+  --accent-hover: #0A84FF;
+  --accent-pressed: #0062CC;
+  --accent-soft: rgba(0, 122, 255, 0.10);
+  --accent-tint: rgba(0, 122, 255, 0.12);
+
+  /* 品牌色 — Sunset Coral（2026 趋势，差异化记忆点，仅小面积点缀） */
+  --brand: #E07856;
+  --brand-hover: #D86A48;
+  --brand-pressed: #C25B3D;
+  --brand-soft: rgba(224, 120, 86, 0.12);
+  --brand-tint: rgba(224, 120, 86, 0.16);
+
+  /* 功能色 — 苹果健康绿 / 警示橙 */
+  --success: #34C759;
+  --success-soft: rgba(52, 199, 89, 0.12);
+  --warning: #FF9500;
+  --warning-soft: rgba(255, 149, 0, 0.12);
+  --danger: #FF3B30;
+  --danger-soft: rgba(255, 59, 48, 0.10);
+
+  /* 营养进度条色（低饱和） */
+  --nut-protein: #34C759;   /* 绿 */
+  --nut-carb: #E8D9C6;      /* 米黄 */
+  --nut-fat: #FFD9B8;       /* 浅橙 */
+
+  /* 文字 — 深色文字 */
+  --text-primary: #1D1D1F;
+  --text-secondary: #86868B;
+  --text-tertiary: #AEAEB2;
+
+  /* 边框 / 分割线 */
+  --border-color: #E5E5EA;
+  --border-soft: rgba(0, 0, 0, 0.05);
+  --divider: rgba(0, 0, 0, 0.06);
+
+  /* 液态玻璃卡片 — 仅卡片使用，纯白底上的柔和折射 */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.80);
+  --glass-bg-hover: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.60);
+  --glass-border-soft: rgba(0, 0, 0, 0.04);
+  --glass-blur: blur(18px) saturate(1.4);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.04),
+                  0 4px 16px rgba(0, 0, 0, 0.06);
+  --glass-shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.05),
+                        0 8px 24px rgba(0, 0, 0, 0.08);
+
+  /* 食品分类标签色 — 低饱和，仅小标签使用 */
+  --cat-staple: #E8D9C6;   /* 主食 */
+  --cat-meat: #F7C9C9;     /* 肉类 */
+  --cat-veg: #B7E4C7;      /* 蔬菜 */
+  --cat-egg: #FFE8D6;      /* 蛋奶（归入水果色调，浅橙） */
+  --cat-soup: #D6E4FF;     /* 汤品（归入饮品色调，浅蓝） */
+  --cat-fruit: #FFE8D6;    /* 水果 */
+
+  /* 分类标签文字色（深一档，保证可读） */
+  --cat-staple-text: #8B6F47;
+  --cat-meat-text: #A85959;
+  --cat-veg-text: #4A8C66;
+  --cat-egg-text: #A87340;
+  --cat-soup-text: #4A6FA8;
+  --cat-fruit-text: #A87340;
+
+  /* 圆角层级 — iOS 标准 */
+  --radius-sm: 8px;    /* 标签 */
+  --radius-md: 12px;   /* 按钮 */
+  --radius-lg: 16px;   /* 卡片 */
+  --radius-xl: 20px;   /* 大卡片 */
+  --radius-full: 9999px;
+
+  /* 动画 — iOS 标准缓动 */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-apple: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* ===== 全局重置 ===== */
+/* margin/padding/box-sizing 由 Tailwind v4 preflight 处理。
+   这里只保留非标准属性，避免与 utilities 优先级冲突（非 layer CSS 会压过 @layer 内的 utilities）。 */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  font-family: "Geist Sans", "Noto Sans SC", "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  min-height: 100dvh;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ===== 卡片类 — 扁平白底细边框（替代液态玻璃） ===== */
+.card {
+  background: #FFFFFF;
+  border: 1px solid #EAEAEA;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-radius: var(--radius-lg);
+  position: relative;
+}
+
+.card-strong {
+  background: #FFFFFF;
+  border: 1px solid #EAEAEA;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05),
+              0 4px 12px rgba(0, 0, 0, 0.04);
+  border-radius: var(--radius-xl);
+  position: relative;
+}
+
+/* ===== 玻璃叠加层 — 仅用于浮层（Tab栏、抽屉Header、弹窗等） ===== */
+.glass-overlay {
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+/* ===== scrollbar ===== */
+/* 默认保留滚动条以保证可访问性，使用 .scrollbar-none 按需隐藏 */
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* ===== 数字等宽 ===== */
+.font-number {
+  font-family: "Geist Mono", "SF Mono", "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ===== 标题排版优化 ===== */
+h1, h2, h3, .text-balance {
+  text-wrap: balance;
+}
+
+/* ===== 动画关键帧 ===== */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ===== 输入框 — iOS 浅色风格 ===== */
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="email"] {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid transparent;
+  transition: all 0.2s var(--ease-apple);
+}
+
+input[type="text"]::placeholder,
+input[type="password"]::placeholder,
+input[type="number"]::placeholder,
+input[type="email"]::placeholder {
+  color: var(--text-tertiary);
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus {
+  background: var(--bg-primary);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+  outline: none;
+}
+
+/* ===== 按钮 — iOS 实心蓝（页面唯一强视觉主按钮） ===== */
+.btn-primary {
+  background: var(--accent);
+  color: #FFFFFF;
+  border: none;
+  box-shadow: 0 1px 2px rgba(0, 122, 255, 0.20);
+  transition: all 0.15s var(--ease-apple);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-primary:active {
+  background: var(--accent-pressed);
+  transform: scale(0.98);
+}
+
+/* ===== 次级按钮 — 浅灰描边 ===== */
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  transition: all 0.15s var(--ease-apple);
+}
+
+.btn-secondary:active {
+  background: var(--bg-tertiary);
+  transform: scale(0.98);
+}
+
+/* ===== 品牌色按钮 — Sunset Coral，用于 logo/品牌区/记忆点元素 ===== */
+.btn-brand {
+  background: var(--brand);
+  color: #FFFFFF;
+  border: none;
+  box-shadow: 0 1px 2px rgba(224, 120, 86, 0.25);
+  transition: all 0.15s var(--ease-apple);
+}
+
+.btn-brand:hover {
+  background: var(--brand-hover);
+}
+
+.btn-brand:active {
+  background: var(--brand-pressed);
+  transform: scale(0.98);
+}
+
+/* ===== 遮罩层 — 浅色柔和 ===== */
+.overlay-backdrop {
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ===== iOS Tab 栏安全区 ===== */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* ============================================================
+   深色模式 — iOS 原生黑底，仅 [data-theme="dark"] 生效
+   玻璃卡片改为深色折射，文字反白，无紫光/发光
+   ============================================================ */
+[data-theme="dark"] {
+  --bg-primary: #000000;
+  --bg-secondary: #1C1C1E;
+  --bg-tertiary: #2C2C2E;
+
+  --accent-soft: rgba(0, 122, 255, 0.18);
+  --accent-tint: rgba(0, 122, 255, 0.20);
+
+  /* 深色模式下品牌色稍亮一档，保证对比度 */
+  --brand: #F08A6A;
+  --brand-hover: #F09678;
+  --brand-pressed: #D86A48;
+  --brand-soft: rgba(240, 138, 106, 0.18);
+  --brand-tint: rgba(240, 138, 106, 0.20);
+
+  --success-soft: rgba(52, 199, 89, 0.18);
+  --warning-soft: rgba(255, 149, 0, 0.18);
+  --danger-soft: rgba(255, 59, 48, 0.16);
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #EBEBF5;
+  --text-tertiary: #86868B;
+
+  --border-color: #38383A;
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --divider: rgba(255, 255, 255, 0.08);
+
+  --glass-bg: rgba(28, 28, 30, 0.72);
+  --glass-bg-strong: rgba(28, 28, 30, 0.80);
+  --glass-bg-hover: rgba(44, 44, 46, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-soft: rgba(255, 255, 255, 0.04);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.30),
+                  0 4px 16px rgba(0, 0, 0, 0.40);
+  --glass-shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.35),
+                        0 8px 24px rgba(0, 0, 0, 0.50);
+}
+
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="password"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input[type="email"] {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] input[type="text"]:focus,
+[data-theme="dark"] input[type="password"]:focus,
+[data-theme="dark"] input[type="number"]:focus,
+[data-theme="dark"] input[type="email"]:focus {
+  background: var(--bg-primary);
+}
+
+[data-theme="dark"] .overlay-backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="dark"] .card {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.20);
+}
+
+[data-theme="dark"] .card-strong {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25),
+              0 4px 12px rgba(0, 0, 0, 0.30);
+}
+
+/* ===== iOS 原生开关 — 仅深浅色/通知开关使用 ===== */
+.ios-toggle {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  transition: background 0.25s var(--ease-apple), border-color 0.25s var(--ease-apple);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ios-toggle::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: transform 0.25s var(--ease-spring);
+}
+
+.ios-toggle.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.ios-toggle.is-on::after {
+  transform: translateX(18px);
+}

@@ -1,0 +1,34 @@
+# ===== Python 后端 =====
+backend/.venv/
+backend/__pycache__/
+backend/app/__pycache__/
+backend/app/**/__pycache__/
+backend/*.pyc
+backend/uploads/
+backend/app/uploads/
+backend/logs/
+backend/.env
+backend/.pytest_cache/
+backend/data/
+backend/_test_avatar.png
+backend/*.pyc
+
+# ===== Node 前端 =====
+frontend-v2/node_modules/
+frontend-v2/dist/
+frontend-v2/.vite/
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Reasonix =====
+.reasonix/
+reasonix.toml

@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# 虚拟环境
+.venv/
+
+# 配置（通过 docker-compose env 注入）
+.env
+.env.*
+
+# 日志
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+
+# 上传文件（运行时挂载 volume）
+uploads/
+
+# 测试
+tests/
+
+# 文档
+CLAUDE.md

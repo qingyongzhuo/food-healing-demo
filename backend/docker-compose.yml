@@ -1,0 +1,67 @@
+# 食愈校园后端服务编排
+# 基础设施（PG/Redis/Mongo/RabbitMQ/MinIO）已单独部署，这里只含后端应用
+#
+# 启动：docker compose up -d
+# 查看日志：docker compose logs -f
+# 初始化数据库：docker compose run --rm web uv run fh-init-db
+
+services:
+  # ===== Web 服务（FastAPI）=====
+  web:
+    build: .
+    image: food-healing-backend:latest
+    container_name: food-healing-web
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - MODE=web
+      - HOST=0.0.0.0
+      - PORT=8000
+      - WORKERS=4
+    env_file:
+      - .env
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      - consumer
+      - scheduler
+    networks:
+      - food-healing
+
+  # ===== MQ 消费者 =====
+  consumer:
+    build: .
+    image: food-healing-backend:latest
+    container_name: food-healing-consumer
+    restart: always
+    environment:
+      - MODE=consumer
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - food-healing
+
+  # ===== 定时任务（每日 00:30 AI 简报）=====
+  scheduler:
+    build: .
+    image: food-healing-backend:latest
+    container_name: food-healing-scheduler
+    restart: always
+    environment:
+      - MODE=scheduler
+      - TIMEZONE=Asia/Shanghai
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - food-healing
+
+networks:
+  food-healing:
+    external: true
+    name: food-healing
