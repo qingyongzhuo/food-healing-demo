@@ -40,7 +40,7 @@
 
 | 首页营养环 | 拍照识菜 | AI 对话 |
 |:---:|:---:|:---:|
-| ![78322801812](C:\Users\30612\AppData\Local\Temp\1783228018122.png) | ![78322786989](C:\Users\30612\AppData\Local\Temp\1783227869896.png) | ![78322805483](C:\Users\30612\AppData\Local\Temp\1783228054839.png) |
+| ![首页](docs/screenshots/01.png) | ![拍照识菜](docs/screenshots/02.png) | ![AI 对话](docs/screenshots/03.png) |
 
 ## 🛠️ 技术栈
 
