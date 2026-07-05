@@ -2,6 +2,16 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import toast from 'react-hot-toast';
 import * as api from '../lib/api';
+import { useMealStore, useUserStore } from './mealStore';
+
+/** 清除 localStorage 和内存中所有用户相关的残留数据（餐食、目标等） */
+function clearStaleUserData() {
+  try { useMealStore.persist.clearStorage(); } catch (_) {}
+  try { useMealStore.getState().resetMeals(); } catch (_) {}
+  try { useUserStore.persist.clearStorage(); } catch (_) {}
+  try { useUserStore.getState().resetUser(); } catch (_) {}
+  try { localStorage.removeItem('food-notifications'); } catch (_) {}
+}
 
 export const useAuthStore = create(
   persist(
@@ -34,6 +44,8 @@ export const useAuthStore = create(
           const data = await api.login(nickname, password);
           const token = data.token || data.access_token;
           localStorage.setItem('token', token);
+          // 清除上一个用户的残留数据（A 用户选菜后 B 用户登录的场景）
+          clearStaleUserData();
           set({
             token,
             user: data.user || { nickname },
@@ -52,6 +64,8 @@ export const useAuthStore = create(
           const data = await api.register(nickname, password, phone);
           const token = data.token || data.access_token;
           localStorage.setItem('token', token);
+          // 注册新用户时确保没有任何残留数据
+          clearStaleUserData();
           set({
             token,
             user: data.user || { nickname },
@@ -71,6 +85,8 @@ export const useAuthStore = create(
         get().resetAuth();
         // 同步清除 persist 中间件的 localStorage 缓存，避免竞态恢复旧 token
         try { useAuthStore.persist.clearStorage(); } catch (_) {}
+        // 清除其他 stores 的持久化 + 内存数据，防止 B 用户看到 A 用户的选择
+        clearStaleUserData();
       },
 
       async fetchProfile() {

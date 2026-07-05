@@ -50,6 +50,15 @@ export const useMealStore = create(
         });
       },
 
+      // 重置整天的餐食数据（用于切换用户时清理 A 用户的残留数据）
+      resetMeals() {
+        set({
+          meals: { breakfast: [], lunch: [], dinner: [], snack: [] },
+          todayDate: getToday(),
+          history: {},
+        });
+      },
+
       getNutrition() {
         const state = get();
         if (state.todayDate !== getToday()) return { kcal: 0, protein: 0, carb: 0, fat: 0 };
