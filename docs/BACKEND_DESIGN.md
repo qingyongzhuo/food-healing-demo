@@ -3,9 +3,10 @@
 > 版本：v2.2（Phase 0 联调对齐版，覆盖 P0–P3 全功能；本版统一字段为 snake_case + RESTful 路径 + 合并 AI 对话请求体）
 > 日期：2026-07-03
 > 维护：后端组
-> 状态：待评审
+> 状态：**设计文档**（本文档描述目标架构，当前实现进度以 `backend/CLAUDE.md` 为准）
+> **实现差异**：当前实现使用 PostgreSQL 作为唯一关系型数据库（8 张表全部在 PG），未使用 MySQL。MongoDB 用于 AI 对话历史等非结构化数据。RabbitMQ 已确认选型。Nacos 为可选组件。
 > 上一版：v2.1（v1.0 → v2.0 升级基础设施与双 AI 平台；v2.1 切换 uv 管理并补充生产服务器信息；v2.2 Phase 0 联调解决 16 处契约不一致，详见 `docs/接口契约统一.md`）
-> 配套文档：`docs/后端技术规范.md`（工程规范细则，本设计文档的执行配套）、`docs/接口契约统一.md`（v2.2 唯一契约源）
+> 配套文档：`docs/后端技术规范.md`（工程规范细则）、`docs/接口契约统一.md`（v2.2 唯一契约源）、`backend/CLAUDE.md`（当前实现导航）
 
 ---
 
@@ -19,7 +20,7 @@
 - **会记忆**：每次 AI 对话都基于用户画像 + 最近 N 轮对话上下文，模型像"记得"用户；
 - **会陪伴**：情绪日记 + AI 治愈话语 + 餐次提醒 + 周报陪伴，把饮食工具变成校园生活伙伴。
 
-后端仍为 **Python + FastAPI** 单体内聚服务（单校单食堂、用户 <1 万，无需微服务），但基础设施从 SQLite 升级为 **MySQL + PostgreSQL + Redis + OSS + MQ + Nacos** 全套，AI 从单模型升级为 **通义千问 VL + 百练双平台多模型路由**。
+后端仍为 **Python + FastAPI** 单体内聚服务（单校单食堂、用户 <1 万，无需微服务），但基础设施从 SQLite 升级为 **PostgreSQL + Redis + MinIO + RabbitMQ + Nacos（可选）** 全套，AI 从单模型升级为 **通义千问 VL + 百练双平台多模型路由**。
 
 ### 1.2 技术栈（V2）
 
@@ -29,12 +30,12 @@
 | ASGI | uvicorn[standard]（开发）/ gunicorn + uvicorn workers（生产） | |
 | AI 视觉 | 阿里通义千问 VL（dashscope SDK） | 拍照识菜、外卖截图识别 |
 | AI 对话 | 阿里百练平台（openai SDK 改 base_url，兼容 OpenAI 接口） | 对话/周报/情绪/陪伴 |
-| 关系库 | MySQL 8.0 | 用户、社交、评价、菜单、过敏、**user_habits** |
-| 时序库 | PostgreSQL 16 | 营养时序数据（JSONB 菜盘快照）、周报分析（窗口函数） |
-| 缓存 | Redis 7 | 识图结果缓存、对话短期上下文、热门菜 ZSET、限流计数 |
-| 对象存储 | 阿里云 OSS | 原图、分享卡片图、AI 生成食物图 |
-| 消息队列 | RocketMQ / RabbitMQ（任选其一） | 识图异步化、定时推送、周报生成 |
-| 配置中心 | Nacos 2.x | 食堂菜单/推荐策略/AI prompt 模板动态下发（**单服务不做服务注册**） |
+| 关系库 | PostgreSQL 16 | 用户、社交、评价、菜单、过敏、**user_habits**（唯一关系库，含时序 JSONB） |
+| 文档库 | MongoDB | AI 对话历史、识图日志、每日简报（可选，空则 graceful 降级） |
+| 缓存 | Redis 7 | 识图结果缓存、对话短期上下文、热门菜 ZSET、限流计数、会话 |
+| 对象存储 | MinIO（S3 兼容） | 原图、分享卡片图、头像 |
+| 消息队列 | RabbitMQ | 识图异步化、消息推送、每日简报生成 |
+| 配置中心 | Nacos 2.x（可选） | 食堂菜单/推荐策略/AI prompt 模板动态下发（**单服务不做服务注册**） |
 | 限流 | slowapi | 防止 AI 接口被滥用 |
 | 配置 | pydantic-settings + python-dotenv | 环境变量管理 |
 | 图片处理 | Pillow | 校验、压缩、格式转换 |
@@ -1578,13 +1579,13 @@ BAILIAN_MODEL_REPORT=qwen3.7-max
 BAILIAN_MODEL_FLASH=qwen3.7-flash
 BAILIAN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
-# ===== 数据库（生产服务器 118.178.229.21，密码 1234，端口默认）=====
-MYSQL_DSN=mysql://root:1234@118.178.229.21:3306/food_healing?charset=utf8mb4
-PG_DSN=postgresql://postgres:1234@118.178.229.21:5432/food_healing
-REDIS_URL=redis://:1234@118.178.229.21:6379/0
+# ===== 数据库（生产服务器 <your-server-ip>，密码 <password>，端口默认）=====
+MYSQL_DSN=mysql://root:<password>@<your-server-ip>:3306/food_healing?charset=utf8mb4
+PG_DSN=postgresql://postgres:<password>@<your-server-ip>:5432/food_healing
+REDIS_URL=redis://:<password>@<your-server-ip>:6379/0
 
 # ===== MQ（RabbitMQ）=====
-RABBITMQ_URL=amqp://guest:1234@118.178.229.21:5672/
+RABBITMQ_URL=amqp://guest:<password>@<your-server-ip>:5672/
 
 # ===== OSS =====
 OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
@@ -1593,10 +1594,10 @@ OSS_ACCESS_KEY_ID=xxxxxxxx
 OSS_ACCESS_KEY_SECRET=xxxxxxxx
 
 # ===== Nacos =====
-NACOS_SERVER=118.178.229.21:8848
+NACOS_SERVER=<your-server-ip>:8848
 NACOS_NAMESPACE=dev
 NACOS_USERNAME=nacos
-NACOS_PASSWORD=1234
+NACOS_PASSWORD=<password>
 
 # ===== 应用 =====
 CORS_ORIGINS=["*"]
@@ -1733,7 +1734,7 @@ uv export --no-dev --format requirements-txt -o requirements.txt
 
 | 项 | 值 |
 |---|---|
-| **服务器地址** | `118.178.229.21` |
+| **服务器地址** | `<your-server-ip>` |
 | 部署目录 | `/opt/food-healing/backend` |
 | Python | 3.12（由 uv 自动管理） |
 | uv 二进制 | `/usr/local/bin/uv` |
@@ -1742,15 +1743,15 @@ uv export --no-dev --format requirements-txt -o requirements.txt
 
 | 组件 | 端口 | 密码 |
 |---|---|---|
-| Redis | 6379 | 1234 |
-| RabbitMQ | 5672 | 1234 |
-| MySQL | 3306 | 1234 |
-| PostgreSQL | 5432 | 1234 |
-| Nacos | 8848 | 1234 |
+| Redis | 6379 | <password> |
+| RabbitMQ | 5672 | <password> |
+| MySQL | 3306 | <password> |
+| PostgreSQL | 5432 | <password> |
+| Nacos | 8848 | <password> |
 | FastAPI | 8000 | — |
 | Nginx | 80 / 443 | — |
 
-> **注意**：密码 `1234` 仅用于本赛事单机部署，**绝不用于真实生产**。生产环境必须用强密码 + Vault / KMS 管理。
+> **注意**：密码 `<password>` 仅用于本赛事单机部署，**绝不用于真实生产**。生产环境必须用强密码 + Vault / KMS 管理。
 > 完整部署规范见 `docs/后端技术规范.md` §14。
 
 ### 12.1 本地开发（uv 管理）
@@ -1788,7 +1789,7 @@ uv run uvicorn app.main:app --reload --port 8000
 **用 uv 直接装依赖**（推荐，不需要预装 Python）：
 
 ```bash
-# 服务器（118.178.229.21）上
+# 服务器（<your-server-ip>）上
 cd /opt/food-healing/backend
 uv sync --no-dev                  # 只装运行时依赖
 uv run gunicorn app.main:app \
@@ -1852,7 +1853,7 @@ server {
 
 ### 12.3 环境变量检查清单（V2）
 
-> 生产服务器 `118.178.229.21`，端口全部默认，密码统一 `1234`。下方"默认"列即为该服务器的实际值。
+> 生产服务器 `<your-server-ip>`，端口全部默认，密码统一 `<password>`。下方"默认"列即为该服务器的实际值。
 
 | 变量 | 必填 | 默认（生产） | 说明 |
 |---|---|---|---|
@@ -1864,18 +1865,18 @@ server {
 | BAILIAN_MODEL_REPORT | 否 | qwen3.7-max | 周报 |
 | BAILIAN_MODEL_FLASH | 否 | qwen3.7-flash | 情绪/摘要 |
 | BAILIAN_BASE_URL | 否 | https://dashscope.aliyuncs.com/compatible-mode/v1 | 百练兼容端点 |
-| MYSQL_DSN | 是 | mysql://root:1234@118.178.229.21:3306/food_healing?charset=utf8mb4 | MySQL 连接串 |
-| PG_DSN | 是 | postgresql://postgres:1234@118.178.229.21:5432/food_healing | PostgreSQL 连接串 |
-| REDIS_URL | 是 | redis://:1234@118.178.229.21:6379/0 | Redis |
-| RABBITMQ_URL | 是 | amqp://guest:1234@118.178.229.21:5672/ | RabbitMQ 连接串 |
+| MYSQL_DSN | 是 | mysql://root:<password>@<your-server-ip>:3306/food_healing?charset=utf8mb4 | MySQL 连接串 |
+| PG_DSN | 是 | postgresql://postgres:<password>@<your-server-ip>:5432/food_healing | PostgreSQL 连接串 |
+| REDIS_URL | 是 | redis://:<password>@<your-server-ip>:6379/0 | Redis |
+| RABBITMQ_URL | 是 | amqp://guest:<password>@<your-server-ip>:5672/ | RabbitMQ 连接串 |
 | OSS_ENDPOINT | 是 | oss-cn-hangzhou.aliyuncs.com | OSS endpoint |
 | OSS_BUCKET | 是 | food-healing-images | OSS bucket |
 | OSS_ACCESS_KEY_ID | 是 | — | OSS AK |
 | OSS_ACCESS_KEY_SECRET | 是 | — | OSS SK |
-| NACOS_SERVER | 否 | 118.178.229.21:8848 | Nacos 地址 |
+| NACOS_SERVER | 否 | <your-server-ip>:8848 | Nacos 地址 |
 | NACOS_NAMESPACE | 否 | dev | Nacos 命名空间 |
 | NACOS_USERNAME | 否 | nacos | Nacos 用户名 |
-| NACOS_PASSWORD | 否 | 1234 | Nacos 密码 |
+| NACOS_PASSWORD | 否 | <password> | Nacos 密码 |
 | CORS_ORIGINS | 否 | ["*"] | 生产改具体域名 |
 | RATE_LIMIT_RECOGNIZE | 否 | 10/minute | |
 | RATE_LIMIT_CHAT | 否 | 20/minute | |
@@ -1895,20 +1896,20 @@ app.mount("/", StaticFiles(directory="../food-healing-demo", html=True), name="s
 
 ### 12.5 基础设施部署清单
 
-**统一部署在服务器 `118.178.229.21`，端口全部默认，密码统一 `1234`（仅本赛事单机部署用）。**
+**统一部署在服务器 `<your-server-ip>`，端口全部默认，密码统一 `<password>`（仅本赛事单机部署用）。**
 
 | 组件 | 版本 | 端口 | 密码 | 备注 |
 |---|---|---|---|---|
-| MySQL | 8.0 | 3306 | 1234 | charset=utf8mb4 |
-| PostgreSQL | 16 | 5432 | 1234 | 启用 JSONB |
-| Redis | 7 | 6379 | 1234 | 持久化可选 |
-| RabbitMQ | 3.x | 5672 | 1234 | 已选型 |
-| Nacos | 2.x | 8848 | 1234 | 单机即可，不做服务注册 |
+| MySQL | 8.0 | 3306 | <password> | charset=utf8mb4 |
+| PostgreSQL | 16 | 5432 | <password> | 启用 JSONB |
+| Redis | 7 | 6379 | <password> | 持久化可选 |
+| RabbitMQ | 3.x | 5672 | <password> | 已选型 |
+| Nacos | 2.x | 8848 | <password> | 单机即可，不做服务注册 |
 | FastAPI | — | 8000 | — | gunicorn + uvicorn workers |
 | Nginx | — | 80 / 443 | — | 反代 + 静态前端 |
 | OSS | — | — | AccessKey | 阿里云托管，独立 bucket |
 
-> **密码 `1234` 仅限赛事单机部署**，真实生产必须用强密码 + Vault / KMS 管理。
+> **密码 `<password>` 仅限赛事单机部署**，真实生产必须用强密码 + Vault / KMS 管理。
 
 ---
 
