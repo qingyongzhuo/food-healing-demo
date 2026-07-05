@@ -36,9 +36,10 @@
 
 ## 📸 界面预览
 
-| 首页营养环 | 拍照识菜 | AI 对话 |
+| 首页 | 拍照识菜 | AI 对话 |
 |:---:|:---:|:---:|
-| ![首页](docs/screenshots/01.png) | ![拍照识菜](docs/screenshots/02.png) | ![AI 对话](docs/screenshots/03.png) |
+| ![首页](docs/screenshots/01.png) | ![识菜](docs/screenshots/02.png) | ![对话](docs/screenshots/03.png) |
+| 营养环 + 餐次卡片 | 食材识别 + 菜品推荐 + 搭配建议 | 小愈 AI 营养师实时对话 |
 
 ## 🛠️ 技术栈
 
