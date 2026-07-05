@@ -3,7 +3,7 @@
 基于 pydantic-settings 从 .env 读取配置。
 - 双 API key：DASHSCOPE_API_KEY（识图）+ BAILIAN_API_KEY（对话）
 - AI 模型名集中在此（业务代码只传 scene）
-- 服务器：118.178.229.21，端口默认，密码 1234
+- 数据库 / 缓存 / MQ / OSS 连接信息全部从 .env 读取，不要硬编码
 """
 
 from __future__ import annotations
@@ -55,17 +55,17 @@ class Settings(BaseSettings):
     RABBITMQ_EXCHANGE_TYPE: str = Field(default="direct", description="交换机类型：direct/topic/fanout")
 
     # ===== OSS（关键字段，必填；MinIO 兼容 S3，但用 oss2 SDK 直连）=====
-    OSS_ENDPOINT: str = Field(description="OSS/MinIO endpoint，如 http://118.178.229.21:9000")
+    OSS_ENDPOINT: str = Field(description="OSS/MinIO endpoint，如 http://<minio-host>:9000")
     OSS_BUCKET: str = Field(default="food-healing-images")
     OSS_ACCESS_KEY_ID: str = Field(description="OSS/MinIO Access Key ID")
     OSS_ACCESS_KEY_SECRET: str = Field(description="OSS/MinIO Access Key Secret")
 
     # ===== Nacos（可选，未部署时 NACOS_ENABLED=false 跳过）=====
     NACOS_ENABLED: bool = Field(default=False, description="是否启用 Nacos 探活")
-    NACOS_SERVER: str = Field(default="118.178.229.21:8848")
+    NACOS_SERVER: str = Field(default="127.0.0.1:8848")
     NACOS_NAMESPACE: str = Field(default="dev")
     NACOS_USERNAME: str = Field(default="nacos")
-    NACOS_PASSWORD: str = Field(default="1234")
+    NACOS_PASSWORD: str = Field(default="")
 
     # ===== 应用 =====
     ENV: Literal["dev", "staging", "prod"] = Field(default="dev")

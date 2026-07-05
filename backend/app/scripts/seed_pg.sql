@@ -1,12 +1,12 @@
 -- ============================================================
 -- PostgreSQL 演示数据 seed 脚本
 -- ============================================================
--- 用法:
---   psql "postgresql://postgres:1234@1234@118.178.229.21:5432/food_healing" -f seed_pg.sql
+-- 用法（请用你自己的账号 / 主机 / 密码替换占位符）:
+--   psql "postgresql://<pg-user>:<pg-password>@<pg-host>:5432/food_healing" -f seed_pg.sql
 --
 -- 或:
---   set PGPASSWORD=1234@1234
---   psql -h 118.178.229.21 -p 5432 -U postgres -d food_healing -f seed_pg.sql
+--   set PGPASSWORD=<pg-password>
+--   psql -h <pg-host> -p 5432 -U <pg-user> -d food_healing -f seed_pg.sql
 --
 -- 内容:
 --   1. u001 近 7 天 nutrition_log（21 条 = 7 天 × 3 餐）

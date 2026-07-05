@@ -1,12 +1,16 @@
 # 食愈校园 — 部署文档
 
-## 1. 服务器信息
+> 本文档面向开源用户，所有 IP / 密码 / 账号均为占位符，请按你自己的环境替换。
+
+## 1. 服务器信息（示例）
 
 | 项目 | 值 |
 |---|---|
-| IP | `118.178.229.21` |
-| 系统 | Alibaba Cloud Linux 8 (x86_64) |
-| Python | 3.11+ |
+| IP | `<your-server-ip>` |
+| 系统 | Linux x86_64（任意主流发行版，需支持 Docker） |
+| Python | 3.11+（仅本地开发需要，容器内已自带） |
+| Docker | 20.10+ |
+| Docker Compose | v2+ |
 
 ## 2. 技术架构
 
@@ -30,34 +34,38 @@
 
 ## 3. 基础设施（Docker 部署）
 
+> 以下端口、用户名、密码均为示例，请按你的环境修改。生产环境务必使用强密码，不要使用默认值。
+
 ### 3.1 PostgreSQL
 
 - 端口：`5432`
 - 数据库：`food_healing`
-- 用户：`postgres`
-- 密码：`1234@1234`
+- 用户：`<pg-user>`（默认 `postgres`）
+- 密码：`<pg-password>`
 
 ### 3.2 Redis
 
 - 端口：`6379`
-- 密码：`1234@1234`
+- 密码：`<redis-password>`
 
 ### 3.3 MongoDB
 
 - 端口：`27017`
 - 数据库：`food_healing`
+- 启用鉴权时请配置独立账号
 
 ### 3.4 RabbitMQ
 
 - 端口：`5672`（AMQP）/ `15672`（管理界面）
-- 用户：`guest`
-- 密码：`1234@1234`
+- 用户：`<rabbitmq-user>`
+- 密码：`<rabbitmq-password>`
+- **安全提示**：不要使用默认 `guest/guest` 账号开放远程访问
 
 ### 3.5 MinIO
 
 - 端口：`9000`（API）/ `9001`（控制台）
-- Access Key：`minioadmin`
-- Secret Key：`minioadmin`
+- Access Key：`<minio-access-key>`
+- Secret Key：`<minio-secret-key>`
 - Bucket：`food-healing-images`
 
 ## 4. 后端应用（Docker 部署）
@@ -103,12 +111,12 @@
 
 ### 5.1 本地配置 SSH 密钥
 
-```powershell
+```bash
 # 生成密钥（如果还没有）
 ssh-keygen -t ed25519 -C "your_email@example.com"
 
 # 查看公钥
-type C:\Users\30612\.ssh\id_ed25519.pub
+cat ~/.ssh/id_ed25519.pub
 ```
 
 ### 5.2 服务器添加公钥
@@ -123,8 +131,8 @@ chmod 600 ~/.ssh/authorized_keys
 
 ### 5.3 上传代码
 
-```powershell
-scp -r d:\desktop\Trae\food-healing-demo\backend root@118.178.229.21:/opt/food-healing/
+```bash
+scp -r backend <user>@<your-server-ip>:/opt/food-healing/
 ```
 
 ### 5.4 配置环境变量
@@ -134,11 +142,12 @@ cd /opt/food-healing/backend
 
 # 编辑 .env，确保数据库连接地址正确
 # 如果 infra 和 backend 在同一 Docker 网络，用容器名代替 IP：
-#   PG_DSN=postgresql+asyncpg://postgres:1234%401234@postgres:5432/food_healing
-#   REDIS_URL=redis://:1234%401234@redis:6379/0
-#   RABBITMQ_URL=amqp://guest:1234%401234@rabbitmq:5672/
+#   PG_DSN=postgresql+asyncpg://<pg-user>:<pg-password>@postgres:5432/food_healing
+#   REDIS_URL=redis://:<redis-password>@redis:6379/0
+#   RABBITMQ_URL=amqp://<rabbitmq-user>:<rabbitmq-password>@rabbitmq:5672/
 #   MONGO_URL=mongodb://mongo:27017
 #   OSS_ENDPOINT=http://minio:9000
+# 注意：密码中如包含特殊字符（如 @ : /），需做 URL 编码
 
 vi .env
 ```
@@ -194,16 +203,26 @@ docker compose up -d --build
 ## 7. 数据备份
 
 ```bash
-# PostgreSQL 备份
-docker exec <pg容器名> pg_dump -U postgres food_healing > backup.sql
+# PostgreSQL 备份（<pg-user> 替换为实际用户名，<pg-container> 替换为实际容器名）
+docker exec <pg-container> pg_dump -U <pg-user> food_healing > backup.sql
 
 # 恢复
-docker exec -i <pg容器名> psql -U postgres food_healing < backup.sql
+docker exec -i <pg-container> psql -U <pg-user> food_healing < backup.sql
 ```
 
-## 8. 注意事项
+## 8. 安全注意事项（开源部署必读）
 
-- **JWT_SECRET**：生产环境必须修改 `.env` 中的默认值
+- **JWT_SECRET**：`.env` 中必须修改为足够长的随机字符串，不要使用任何默认值
+- **数据库密码**：所有数据库（PG / Redis / RabbitMQ / Mongo / MinIO）必须使用强密码，禁止使用示例中的占位值或常见弱密码
+- **RabbitMQ 账号**：不要使用默认 `guest/guest` 开放远程访问，应创建专用账号并分配最小权限
+- **MinIO 密钥**：不要使用默认 `minioadmin/minioadmin`，部署后立即修改
+- **API Key**：`DASHSCOPE_API_KEY` / `BAILIAN_API_KEY` 等第三方密钥仅放在 `.env`，不要写入代码或文档
+- **CORS_ORIGINS**：生产环境应限制为前端实际域名，不要保留 `["*"]`
+- **端口暴露**：仅暴露必要端口（如 80/443），数据库、缓存等内部服务不要直接对公网开放
+- **HTTPS**：生产环境建议在 Nginx 前端配置 SSL/TLS
+
+## 9. 其他注意事项
+
 - **三进程分离**：web / consumer / scheduler 各自独立容器，不能合并
 - **日志**：写入 `logs/app.log`，按日轮转，默认保留 14 天
 - **MongoDB**：可选组件，`MONGO_URL` 为空时 AI 对话历史不持久化但功能不中断

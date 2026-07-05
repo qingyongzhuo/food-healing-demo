@@ -7,8 +7,9 @@
 **食愈校园** — 会成长、会记忆、会陪伴的校园饮食伙伴。后端提供用户鉴权、AI 对话（SSE 流式）、拍照识菜（异步任务）、营养记录、健康档案等能力。
 
 - **定位**：面向校园学生的饮食记录 + AI 营养陪伴 App 后端
-- **部署服务器**：`118.178.229.21`（PG/Mongo/Redis/OSS 同机）
-- **当前阶段**：Phase 8 完成（uv 包管理 + 多进程启动 + APScheduler 定时简报 + MQ 容错增强；后端核心架构全部就绪）
+- **部署服务器**：`<your-server-ip>`（阿里云 Alibaba Cloud Linux 8，PG/Mongo/Redis/RabbitMQ/MinIO 均 Docker 部署）
+- **前端部署**：`/opt/food-healing/frontend/dist/`（Nginx 静态托管）
+- **当前阶段**：Phase 9 完成（Docker 容器化部署 + 三容器编排 + 阿里云 PyPI 镜像加速）
 
 ## 2. 技术栈
 
@@ -21,7 +22,7 @@
 | PG 驱动 | asyncpg | SQLAlchemy 底层（8 张关系表） |
 | MongoDB | motor 3.6+ | 异步驱动（3 个集合：AI 对话/识图日志/日报） |
 | Redis | redis[async] | `redis.asyncio` 连接池（会话 + 缓存） |
-| MQ | aio-pika | RabbitMQ（已启用 `amqp://guest:guest@118.178.229.21:5672/`，生产者+消费者；未配置时 graceful 跳过） |
+| MQ | aio-pika | RabbitMQ（已启用 `amqp://<user>:<password>@<rabbitmq-host>:5672/`，生产者+消费者；未配置时 graceful 跳过） |
 | AI 平台 | 阿里百炼 + DashScope | OpenAI 兼容模式，双 API Key |
 | AI SDK | openai（Python） | 文本对话 + 多模态识图 |
 | 鉴权 | PyJWT + bcrypt | HS256，7 天过期，user_id 为 int |
@@ -114,6 +115,10 @@ backend/
 │   ├── conftest.py
 │   └── test_health.py
 │
+├── Dockerfile                  # Phase 9：Docker 镜像构建（python:3.11-slim + uv + 阿里云镜像加速）
+├── docker-compose.yml          # Phase 9：三容器编排（web / consumer / scheduler）
+├── .dockerignore               # Phase 9：Docker 构建排除
+├── DEPLOY.md                   # Phase 9：部署文档（服务器信息、架构图、运维命令）
 ├── uploads/avatars/            # 头像本地存储
 ├── uploads/camera/             # 拍照识菜图片存储（Phase 6，Pillow 压缩后）
 ├── logs/                       # Phase 8：日志文件目录（app.log 按日轮转，默认保留 14 天）
@@ -677,7 +682,7 @@ return success(data={"user": user}, message="昵称已更新")
 
 ```powershell
 # 进入后端目录
-cd d:\desktop\Trae\food-healing-demo\backend
+cd backend
 
 # 一键安装/同步全部依赖（uv 自动管理虚拟环境）
 uv sync
@@ -710,6 +715,40 @@ uv run pytest tests/test_health.py -v
 - 三条进程（web / consumer / scheduler）必须分开启动，可分别部署到不同容器
 - 日志文件写入 `logs/app.log`，按日轮转，默认保留 14 天
 
+### 6.1 Docker 部署命令（Phase 9）
+
+```bash
+# 构建镜像（服务器上，国内用阿里云镜像加速）
+docker compose build
+
+# 初始化数据库（仅首次）
+docker compose run --rm web uv run fh-init-db
+
+# 启动全部服务
+docker compose up -d
+
+# 查看状态
+docker compose ps
+docker compose logs -f
+
+# 查看单个服务日志
+docker compose logs -f web
+docker compose logs -f consumer
+docker compose logs -f scheduler
+
+# 重启单个服务
+docker compose restart web
+
+# 停止全部
+docker compose down
+```
+
+**Docker 镜像构建要点**：
+- 基础镜像 `python:3.11-slim`，通过 pip 安装 uv（避免 ghcr.io 在国内拉取超时）
+- `PIP_INDEX_URL` 和 `UV_INDEX_URL` 均指向阿里云 PyPI 镜像 `https://mirrors.aliyun.com/pypi/simple/`
+- 一个镜像三种运行模式，通过 `MODE` 环境变量切换：`web` / `consumer` / `scheduler`
+- `uploads/` 和 `logs/` 目录通过 volume 挂载到宿主机，避免容器重建丢失数据
+
 ## 7. 环境变量
 
 见 `.env.example`。关键字段：
@@ -722,7 +761,7 @@ uv run pytest tests/test_health.py -v
 | `REDIS_URL` | ✅ | Redis 连接串 |
 | `MONGO_URL` | ❌ | MongoDB 连接串（空则跳过，graceful 降级） |
 | `MONGO_DB` | 默认 `food_healing` | MongoDB 数据库名 |
-| `RABBITMQ_URL` | ✅ | RabbitMQ 连接串，已启用 `amqp://guest:guest@118.178.229.21:5672/`（空则 graceful 跳过） |
+| `RABBITMQ_URL` | ✅ | RabbitMQ 连接串，已启用 `amqp://<user>:<password>@<rabbitmq-host>:5672/`（空则 graceful 跳过） |
 | `OSS_ENDPOINT` | ✅ | MinIO endpoint |
 | `JWT_SECRET` | ✅ | 生产必改 |
 | `JWT_EXPIRE_HOURS` | 默认 168（7 天） | Redis 会话 TTL 同步此值 |
@@ -748,6 +787,8 @@ uv run pytest tests/test_health.py -v
 | 加快捷启动命令 | `pyproject.toml [project.scripts]` + `app/cli.py` 加函数 |
 | 加定时任务 | `tasks/run_scheduler.py` 加 job（`AsyncIOScheduler.add_job`） |
 | 改日志保留 | `config.py` 改 `LOG_RETENTION_DAYS`，或 `.env` 同步 |
+| 构建 Docker 镜像 | `docker compose build`（服务器上） |
+| 部署到服务器 | 参考 `DEPLOY.md` 或本文档第 12 节 |
 
 ## 9. 已知问题 + 待办
 
@@ -758,7 +799,7 @@ uv run pytest tests/test_health.py -v
 - **鉴权强化完成**：`AuthMiddleware` 已加 Redis 会话强校验（`validate_session`），logout/改密后旧 token 立即失效；`update_nickname` 加 `IntegrityError` 兜底；`upload_avatar` 旧头像删除路径修正
 - **Phase 3 用户中心**：user_service 占位待迁移（与 Phase 3 AI 模块独立，未冲突）、菜单/推荐/排行榜、过敏/忌口（preferences.py 占位）
 - **Phase 6+**：情绪/运动/周报/语音转餐盘/分享卡片
-- **RabbitMQ**：✅ 已启用（`amqp://guest:guest@118.178.229.21:5672/`，交换机 `food_healing` DIRECT durable）。消息推送消费者（`tasks/message_task.py`，Phase 8 已加 DLX + 重试）、拍照识菜消费者（`tasks/ai_task.py` 监听 `task.ai.recognize`）、每日简报消费者（`tasks/ai_task.py` 监听 `task.ai.daily`，Phase 3 新增）均已在 lifespan 启动；Phase 8 起也支持独立进程 `fh-consumer` 启动。`guest/guest` 默认账号已开放远程访问，生产建议改专用账号
+- **RabbitMQ**：✅ 已启用（连接串见 `RABBITMQ_URL`，交换机 `food_healing` DIRECT durable）。消息推送消费者（`tasks/message_task.py`，Phase 8 已加 DLX + 重试）、拍照识菜消费者（`tasks/ai_task.py` 监听 `task.ai.recognize`）、每日简报消费者（`tasks/ai_task.py` 监听 `task.ai.daily`，Phase 3 新增）均已在 lifespan 启动；Phase 8 起也支持独立进程 `fh-consumer` 启动。生产环境请改专用账号，不要使用默认 `guest/guest`
 - **Nacos**：未部署，`NACOS_ENABLED=false` 跳过
 - **MongoDB**：`MONGO_URL` 为空时 graceful 跳过。Phase 3 已完成 `ai_chat_history` / `ai_daily_report` 集合的读写逻辑，配置 `MONGO_URL` 后即可启用对话持久化与每日简报
 
@@ -860,3 +901,95 @@ uv run pytest tests/test_health.py -v
 | 全接口统一异常返回 | ✅ | `app/exceptions.py` + `middleware.py` 全局处理器 |
 | 完整日志记录 | ✅ | `utils/logger.py` 双 handler + 文件轮转 |
 | 每日自动 AI 简报推送异步流程完整跑通 | ✅ | `tasks/run_scheduler.py` → `ai_service.trigger_daily_summary_task` → MQ（`task.ai.daily` 路由键）→ `tasks/ai_task._handle_daily_summary_task` → `generate_daily_summary` 写 Mongo `ai_daily_report` + 推送 `system_message`（msg_type=ai） |
+
+## 12. Phase 9 详细说明（Docker 容器化部署）
+
+### 12.1 架构概览
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    Docker 容器层                      │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐             │
+│  │   web     │ │ consumer │ │scheduler │  ← 后端应用 │
+│  │  :8000   │ │  (MQ消费) │ │ (定时任务) │             │
+│  └──────────┘ └──────────┘ └──────────┘             │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐             │
+│  │PostgreSQL│ │  Redis   │ │ MongoDB  │  ← 数据存储 │
+│  │  :5432   │ │  :6379   │ │  :27017  │             │
+│  └──────────┘ └──────────┘ └──────────┘             │
+│  ┌──────────┐ ┌──────────┐                         │
+│  │RabbitMQ  │ │  MinIO   │           ← 中间件/OSS  │
+│  │  :5672   │ │  :9000   │                         │
+│  └──────────┘ └──────────┘                         │
+└─────────────────────────────────────────────────────┘
+```
+
+### 12.2 关键文件
+
+| 文件 | 用途 |
+|---|---|
+| `Dockerfile` | 基于 `python:3.11-slim`，pip 安装 uv + 阿里云镜像加速 |
+| `docker-compose.yml` | 编排 web / consumer / scheduler 三个容器，共享 `food-healing` 网络 |
+| `.dockerignore` | 排除 `.venv`、`__pycache__`、`logs`、`uploads`、`tests`、`.env` 等 |
+| `DEPLOY.md` | 完整部署文档（服务器信息、架构图、部署步骤、运维命令、数据备份） |
+
+### 12.3 三种运行模式
+
+一个镜像，通过 `MODE` 环境变量切换：
+
+| MODE | 进程 | 命令 | 端口 |
+|---|---|---|---|
+| `web` | uvicorn 4 worker | `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4` | 8000 |
+| `consumer` | MQ 消费者 | `uv run python -m app.tasks.run_consumer` | 无 |
+| `scheduler` | APScheduler | `uv run python -m app.tasks.run_scheduler` | 无 |
+
+### 12.4 构建加速
+
+- 使用阿里云 PyPI 镜像避免 pip/uv 下载超时
+- `PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/`
+- `UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/`
+- 通过 pip 安装 uv（而非 `COPY --from=ghcr.io/astral-sh/uv`），避免 ghcr.io 在国内无法访问
+
+### 12.5 部署流程
+
+```bash
+# 1. 上传代码到服务器
+scp -r backend <user>@<your-server-ip>:/opt/food-healing/
+
+# 2. 配置 .env
+cd /opt/food-healing/backend
+cp .env.example .env && vi .env
+
+# 3. 构建并启动
+docker compose build
+docker compose run --rm web uv run fh-init-db
+docker compose up -d
+
+# 4. 验证
+curl http://127.0.0.1:8000/api/health
+```
+
+### 12.6 前端部署
+
+前端静态文件部署在 `/opt/food-healing/frontend/dist/`，通过 Nginx 托管：
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # 前端静态文件
+    location / {
+        root /opt/food-healing/frontend/dist;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API 反向代理到后端
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
