@@ -113,25 +113,10 @@ export default function PhotoRecognition() {
 
               {/* Recognizing */}
               {isRecognizing && (
-                <div className="flex flex-col items-center py-8 gap-4">
-                  <div className="relative w-16 h-16">
-                    <svg className="w-full h-full -rotate-90">
-                      <circle cx="32" cy="32" r="28" fill="none" stroke="var(--bg-tertiary)" strokeWidth="4" />
-                      <circle
-                        cx="32" cy="32" r="28"
-                        fill="none"
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                        strokeDasharray={2 * Math.PI * 28}
-                        strokeDashoffset={2 * Math.PI * 28 * (1 - progress / 100)}
-                        style={{ stroke: 'var(--accent)' }}
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Spinner size={20} className="animate-spin" style={{ color: 'var(--accent)' }} />
-                    </div>
-                  </div>
-                  <p className="text-xs text-[var(--text-secondary)]">AI 正在识别中... {progress}%</p>
+                <div className="flex flex-col items-center py-8 gap-5">
+                  <Spinner size={36} className="animate-spin" style={{ color: 'var(--accent)' }} />
+                  <p className="text-sm text-[var(--text-secondary)] font-medium">AI 正在识别中...</p>
+                  <p className="text-[11px] text-[var(--text-tertiary)]">分析食材、推荐搭配、计算营养</p>
                 </div>
               )}
 
