@@ -11,8 +11,11 @@ class ApiError extends Error {
 
 function handleUnauthorized() {
   localStorage.removeItem('token');
+  // 导入 toast 提示（避免循环依赖：api.js 不能顶层 import react-hot-toast）
+  import('react-hot-toast').then(m => {
+    m.toast.error('登录已过期，请重新登录', { id: 'auth-expired' });
+  }).catch(() => {});
   import('../stores/authStore').then(m => {
-    // 直接重置状态，不调 logout()，避免再次发请求触发 401 死循环
     m.useAuthStore.getState().resetAuth();
   }).catch(err => {
     console.warn('[api] handleUnauthorized: failed to import authStore', err);
